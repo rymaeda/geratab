@@ -5,7 +5,7 @@ Este programa foi criado com o propósito de gerar as tabelas de roscas para o m
 
 Os dados são informados por meio de arquivo texto de entrada. Nesse arquivo devem ser informados os números de dentes das engrenagens disponíveis, o passo do fuso e os passos que deseja pesquisar as combinações de engrenagens. Opcionalmente podem ser informado o Kludge-Factor(1), o valor máximo da soma de dentes das engrenagens A e B, idem para C e D *(2).
 
-Os arquivos de exemplo que começam com "MR301...", foram gerados para o programa compilado para Windows64, caso vá compilar em outro compilador que não o LCC-Win é necessário que edite os arquivos de exemplos trocando as vírgulas por pontos.
+Os arquivos de exemplo que começam com "manrod-MR301...", foram gerados para o programa compilado para Windows64, caso vá compilar em outro compilador que não o LCC-Win é necessário que edite os arquivos de exemplos trocando as vírgulas por pontos.
 
 Ricardo Maeda
 rymaedaATyahoo.com
