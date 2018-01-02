@@ -11,4 +11,5 @@ Ricardo Maeda
 rymaedaATyahoo.com
 
 *(1) Kludge Factor é um multiplicador utilizado quando o trem de engrenagens não é acionado diretamente pelo eixo árvore. Nos tornos BV20 o Kludge é de 4,5.
+
 *(2) As somas dos números de dentes diz respeito à distância entre eixos das respectivas engrenagens, limitar o valor máximo então seria por causa do limite físico para a montagem dessas engrenagens na grade do torno. Os valores do meu torno foram encontrados num grupo Yahoo de mini tornos.
