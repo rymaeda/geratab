@@ -17,7 +17,8 @@
 ** 01/01/18: soh gera os passos listados no arquivo de entrada.
 ** 06/01/18: nomeia e cria arquivo de saida automaticamente.
 ** 07/01/18: rearranjo de código, inclusão de hora e data na tabela.
-** 08/01/18: mudanca de criterio de classificacao de combinacoes produto vetorial.
+** 08/01/18: mudanca de criterio de classificacao de combinacoes com uso do produto vetorial.
+** 11/01/18: remocao de redundancias durante a geracao de combinacoes. Diminuicao de consumo de memoria.
 **
 ** Ricardo Y. Maeda - rymaeda AT yahoo.com
 **
@@ -38,7 +39,7 @@
 #include <math.h>
 
 #define MAX_OBJETIVOS 200
-#define MAX_COMBINACOES 80000
+#define MAX_COMBINACOES 20000
 #define NE 4	/* numero de engrenagens na cx norton*/
 
 /* flags (variaveis de um bit) */
@@ -51,16 +52,16 @@
 #define OPCAO_POL 256
 
 typedef struct {
-	unsigned char NA;
-	unsigned char NB;
-	unsigned char NC;
-	unsigned char ND;
+	unsigned short NA;
+	unsigned short NB;
+	unsigned short NC;
+	unsigned short ND;
 	double passo;
 	double sigma;
 }
 COMBINACAO, *pCOMBINACAO;
 
-int N[40];	/* numero de dentes da i-esima engrenagem */
+int N[50];	/* numero de dentes da i-esima engrenagem */
 int iN;		/* numero de engrenagens em N[] */
 double PF;		/* passo do fuso do torno */
 double PD[MAX_OBJETIVOS]; /* passos desejados milimetros*/
@@ -77,7 +78,7 @@ int MaxAB= 1000;
 int MinCD= 10;
 int MaxCD= 1000;
 char NomeArquivo[256];
-char analise; /* liga modo de analise */
+char analise; /* ativa  modo de analise */
 
 void LeArquivo(char *filename){
 	FILE *fp1;
@@ -195,74 +196,6 @@ int Compara(const void *p1, const void *p2){ /* formato utilizado pela std qsort
 	return Compara0((pCOMBINACAO)p1, (pCOMBINACAO)p2);
 }
 
-int GeraCombinacoes(void){
-	int i, j, k, l;
-	int cont;
-	double p;
-	cont= 0;
-	/* gera combinacoes com o uso de 4 engrenagens */
-	for(i=0; i< iN; i++){
-		for(j=0; j< iN; j++){
-			if (j==i) continue; /*elimina repeticao de engrenagem*/
-			for(k=0; k< iN; k++){
-				if(k==i||k==j) continue; /*elimina repeticao de engrenagem*/
-				for(l=0; l< iN; l++){
-					if (l==i||l==j||l==k) continue; /*elimina repeticao de engrenagem*/
-					p= (PF*FatorK*(double)N[i]*(double)N[k])/((double)N[j]*(double)N[l]);
-					if (p>(2*PF*FatorK)) /* limita passo maximo*/
-						continue;
-					/* Elimina combinacao que excede o minimo ou o maximo */
-					if (((N[i]+N[j])>MaxAB)||((N[i]+N[j])<MinAB)||
-						    ((N[k]+N[l])>MaxCD)||((N[k]+N[l])<MinCD)){
-						//printf("A+B= %d\nC+D= %d\n", N[i]+N[k],N[k]+N[l]);
-						continue;
-					}
-					/* Guarda combinacao */
-					combinacao[cont].NA= N[i];
-					combinacao[cont].NB= N[j];
-					combinacao[cont].NC= N[k];
-					combinacao[cont].ND= N[l];
-					combinacao[cont].passo= p;
-					combinacao[cont].sigma= fabs((double)N[i]*N[l]-N[k]*N[j])/(sqrt(N[i]*N[i]+N[j]*N[j])*sqrt(N[k]*N[k]+N[l]*N[l])); /*produto vetorial*/
-					cont++;
-					if (cont>=MAX_COMBINACOES){
-						fprintf(stderr, "Numero maximo de combinacoes excedido! Abortando.\n");
-						fprintf(stderr, "Numero maximo de combinacoes= %d\n\n", MAX_COMBINACOES);
-						exit(-1);
-					}
-				}
-			}
-		}
-	}
-	/* gera combinacoes com o uso de 2 engrenagens */
-	for(i=0; i< iN; i++){
-		for(j=i; j< iN; j++){
-			p= (PF*FatorK*N[i])/(N[j]);
-			if (p>2*PF*FatorK) /* limita passo maximo */				continue;
-			/* Verifica tamanhos minimos e maximos das engrenagens */
-			if (((N[i]+N[j])>MaxAB)||((N[i]+N[j])<MinAB)){
-				//printf("A+B= %d\n", N[i]+N[j]);
-				continue;
-			}
-			combinacao[cont].NA= N[i];
-			combinacao[cont].NB= N[j];
-			combinacao[cont].NC= 0;
-			combinacao[cont].ND= 0;
-			combinacao[cont].passo= p;
-			combinacao[cont].sigma= 0.05;
-			cont++;
-			if (cont>=MAX_COMBINACOES){
-				fprintf(stderr, "Numero maximo de combinacoes excedido! Abortando.\n");
-				fprintf(stderr, "Numero maximo de combinacoes= %d\n\n", MAX_COMBINACOES);
-				exit(-1);
-			}
-		}
-	}
-	icomb= cont;
-	qsort(combinacao, cont, sizeof(COMBINACAO), Compara);
-	return cont;
-}
-
 int RemoveRedundancias1(void){
 	int i, j;
 	i= 0;
@@ -287,6 +220,89 @@ int RemoveRedundancias2(void){
 	}
 	icomb= i + 1;
 	return 0;
+}
+
+int GeraCombinacoes(void){
+	int i, j, k, l;
+	int cont;
+	double p;
+	cont= 0;
+	/* gera combinacoes com o uso de 4 engrenagens */
+	for(i=0; i< iN; i++){
+		for(j=0; j< iN; j++){
+			if (j==i) continue; /*elimina repeticao de engrenagem*/
+			for(k=0; k< iN; k++){
+				if(k==i||k==j) continue; /*elimina repeticao de engrenagem*/
+				for(l=0; l< iN; l++){
+					if (l==i||l==j||l==k) continue; /*elimina repeticao de engrenagem*/
+					p= (PF*FatorK*(double)N[i]*(double)N[k])/((double)N[j]*(double)N[l]);
+					if (p>(2*PF*FatorK)) continue; /* limita passo maximo*/
+					/* Elimina combinacao que excede o minimo ou o maximo */
+					if (((N[i]+N[j])>MaxAB)||((N[i]+N[j])<MinAB)||
+						    ((N[k]+N[l])>MaxCD)||((N[k]+N[l])<MinCD)){
+						//printf("A+B= %d\nC+D= %d\n", N[i]+N[k],N[k]+N[l]);
+						continue;
+					}
+					/* Guarda combinacao */
+					combinacao[cont].NA= N[i];
+					combinacao[cont].NB= N[j];
+					combinacao[cont].NC= N[k];
+					combinacao[cont].ND= N[l];
+					combinacao[cont].passo= p;
+					combinacao[cont].sigma= fabs((double)N[i]*N[l]-N[k]*N[j])/(sqrt(N[i]*N[i]+N[j]*N[j])*sqrt(N[k]*N[k]+N[l]*N[l])); /*produto vetorial*/
+					cont++;
+					if (cont==(MAX_COMBINACOES-1)){
+						icomb= cont;
+						qsort(combinacao, cont, sizeof(COMBINACAO), Compara);
+						RemoveRedundancias1();
+						RemoveRedundancias2();
+						cont=icomb;
+						if (cont==MAX_COMBINACOES){
+							fprintf(stderr, "Numero maximo de combinacoes excedido! Abortando.\n");
+							fprintf(stderr, "Numero maximo de combinacoes= %d\n\n", MAX_COMBINACOES);
+							exit(-1);
+						}
+					}
+				}
+			}
+		}
+	}
+	/* gera combinacoes com o uso de 2 engrenagens */
+	for(i=0; i< iN; i++){
+		for(j=i; j< iN; j++){
+			if (j==i) continue; /*elimina repeticao de engrenagem*/
+			p= (PF*FatorK*N[i])/(N[j]);
+			if (p>2*PF*FatorK)	continue; /* limita passo maximo */
+			if (((N[i]+N[j])>MaxAB)||((N[i]+N[j])<MinAB)){/* Verifica tamanhos minimos e maximos das engrenagens */
+				//printf("A+B= %d\n", N[i]+N[j]);
+				continue;
+			}
+			combinacao[cont].NA= N[i];
+			combinacao[cont].NB= N[j];
+			combinacao[cont].NC= 0;
+			combinacao[cont].ND= 0;
+			combinacao[cont].passo= p;
+			combinacao[cont].sigma= 0.05;
+			cont++;
+					if (cont==MAX_COMBINACOES){
+						icomb= cont;
+						RemoveRedundancias1();
+						RemoveRedundancias2();
+						qsort(combinacao, cont, sizeof(COMBINACAO), Compara);
+						cont=icomb;
+						if (cont==MAX_COMBINACOES){
+							fprintf(stderr, "Numero maximo de combinacoes excedido! Abortando.\n");
+							fprintf(stderr, "Numero maximo de combinacoes= %d\n\n", MAX_COMBINACOES);
+							exit(-1);
+						}
+					}
+		}
+	}
+	icomb= cont;
+	qsort(combinacao, cont, sizeof(COMBINACAO), Compara);
+	RemoveRedundancias1();
+	RemoveRedundancias2();
+	return cont;
 }
 
 int PesquisaTabela(double passo){ /* faz pesquisa pelo metodo da dicotomia customizado */
@@ -370,7 +386,7 @@ int ImprimeDesejados(void){
 	fprintf(fp, "<table style=\"text-align: center; width:  600px;\" border=\"1\"\n");
 	fprintf(fp, "cellpadding=\"2\" cellspacing=\"2\">\n<tbody>\n");
 	if (iPD){
-		fprintf(fp, "<big>Passos em milimetros</big>\n");
+		fprintf(fp, "<big>Passos em milímetros</big>\n");
 		fprintf(fp, "<tr>\n<td>A</td>\n<td>B</td>\n<td>C</td>\n<td>D</td>\n<td>Passo<br>Nominal<br>(mm)</td>\n");
 		fprintf(fp, "<td style=\"background-color: rgb(102, 255, 255);\">");
 		fprintf(fp, "Passo<br>Efetivo<br>(mm)</td>\n<td>Erro</td>\n</tr>\n");
@@ -485,13 +501,10 @@ int main(int argc,char *argv[]){
 	GeraCombinacoes();
 	if ((iPD+iPDP)==0)
 		return -1;
-	fprintf(stderr, "analise =%d\n", analise);
 	if (analise){
 		ImprimeTabela();
 		return 0;
 	}
-	RemoveRedundancias1();
-	RemoveRedundancias2();
 	ImprimeDesejados();
 	return 0;
 }
