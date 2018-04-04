@@ -35,7 +35,7 @@ Mas obedecendo as seguintes regras:
 2- Caso o programa não seja o fornecido aqui no GitHub e seja compilado com outro compilador qua não o LCC-Win32 é necessário utilizar ponto no lugar de vírgula como separador decimal.
 3- O programa é tosco e não verifica a correção do arquivo de entrada, assim se não respeitar a limitações aqui descritas o resultado provavelmente será incorreto.
 
-O programa foi desenvolvido com o uso do ambiente LCC-Win32, caso vá compilar em outro compilador que não o LCC-Win é necessário que edite o locale no código fonte, pois é esse locale que ambienta o programa para as entradas e saídas com o uso de vírgulas como separador decimal caso contrário os arquivos de entrada devem ser editados trocando as vírgulas por pontos.
+O programa foi desenvolvido com o uso do ambiente LCC-Win32 (link: https://lcc-win32.services.net/), caso vá compilar em outro compilador que não o LCC-Win é necessário que edite o locale no código fonte, pois é esse locale que ambienta o programa para as entradas e saídas com o uso de vírgulas como separador decimal caso contrário os arquivos de entrada devem ser editados trocando as vírgulas por pontos.
 
 Ricardo Maeda
 rymaedaATyahoo.com
