@@ -19,6 +19,7 @@
 ** 07/01/18: rearranjo de código, inclusão de hora e data na tabela.
 ** 08/01/18: mudanca de criterio de classificacao de combinacoes com uso do produto vetorial.
 ** 11/01/18: remocao de redundancias durante a geracao de combinacoes. Diminuicao de consumo de memoria.
+** 27/01/18: correcao rotina de solucao com 2 engrenagens.
 **
 ** Ricardo Y. Maeda - rymaeda AT yahoo.com
 **
@@ -39,7 +40,7 @@
 #include <math.h>
 
 #define MAX_OBJETIVOS 200
-#define MAX_COMBINACOES 20000
+#define MAX_COMBINACOES 120000
 #define NE 4	/* numero de engrenagens na cx norton*/
 
 /* flags (variaveis de um bit) */
@@ -201,7 +202,7 @@ int RemoveRedundancias1(void){
 	i= 0;
 	for (j=1; j<icomb; j++){
 		if(Compara0(combinacao+i, combinacao+j)){
-			if (j>(i+1))				memcpy(combinacao+i+1, combinacao+j, sizeof(COMBINACAO));
+			if (j>(i+1))	memcpy(combinacao+i+1, combinacao+j, sizeof(COMBINACAO));
 			i++;
 		}
 	}
@@ -267,22 +268,23 @@ int GeraCombinacoes(void){
 			}
 		}
 	}
-	/* gera combinacoes com o uso de 2 engrenagens */
+	/* gera combinacoes com 2 engrenagens */
 	for(i=0; i< iN; i++){
-		for(j=i; j< iN; j++){
+		for(j=0; j< iN; j++){
 			if (j==i) continue; /*elimina repeticao de engrenagem*/
 			p= (PF*FatorK*N[i])/(N[j]);
 			if (p>2*PF*FatorK)	continue; /* limita passo maximo */
-			if (((N[i]+N[j])>MaxAB)||((N[i]+N[j])<MinAB)){/* Verifica tamanhos minimos e maximos das engrenagens */
-				//printf("A+B= %d\n", N[i]+N[j]);
-				continue;
-			}
+//			if (((N[i]+N[j])>MaxAB)||((N[i]+N[j])<MinAB)){/* Verifica tamanhos minimos e maximos das engrenagens */
+//				//printf("A+B= %d\n", N[i]+N[j]);
+//				continue;
+//			}
+			//fprintf(stderr, "(%d|%d|%f/", N[i], N[j], p);
 			combinacao[cont].NA= N[i];
-			combinacao[cont].NB= N[j];
+			combinacao[cont].NB= 0;
 			combinacao[cont].NC= 0;
-			combinacao[cont].ND= 0;
+			combinacao[cont].ND= N[j];
 			combinacao[cont].passo= p;
-			combinacao[cont].sigma= 0.05;
+			combinacao[cont].sigma= 0.03;
 			cont++;
 					if (cont==MAX_COMBINACOES){
 						icomb= cont;
@@ -300,8 +302,8 @@ int GeraCombinacoes(void){
 	}
 	icomb= cont;
 	qsort(combinacao, cont, sizeof(COMBINACAO), Compara);
-	RemoveRedundancias1();
-	RemoveRedundancias2();
+	//RemoveRedundancias1();
+	//RemoveRedundancias2();
 	return cont;
 }
 
@@ -352,8 +354,15 @@ int ImprimeTabela(void){
 	fprintf(fp,"<td>seno</td></tr>\n");
 	for (i= 0; i<icomb; i++){
 		fprintf(fp, "<tr>\n<td>%3d</td>\n", combinacao[i].NA);
-		fprintf(fp, "<td>%3d</td>\n", combinacao[i].NB);
-		fprintf(fp, "<td>%3d</td>\n", combinacao[i].NC);
+		if (combinacao[i].NB)
+			fprintf(fp, "<td>%3d</td>\n", combinacao[i].NB);
+		else
+			fprintf(fp, "<td>QQ</td>\n");
+//		fprintf(fp, "<td>%3d</td>\n", combinacao[i].NC);
+		if (combinacao[i].NC)
+			fprintf(fp, "<td>%3d</td>\n", combinacao[i].NC);
+		else
+			fprintf(fp, "<td>--</td>\n");
 		fprintf(fp, "<td>%3d</td>\n", combinacao[i].ND);
 		fprintf(fp, "<td style=\"background-color: rgb(102, 255, 255);\">%2.4f</td>\n", combinacao[i].passo);
 		fprintf(fp, "<td>%2.2f | %2.2f | %1.5f</td></tr>\n", (double)combinacao[i].NA/combinacao[i].NB, (double)combinacao[i].NC/combinacao[i].ND, combinacao[i].sigma);
@@ -394,8 +403,15 @@ int ImprimeDesejados(void){
 			it= PesquisaTabela(PD[i]);
 			if ((combinacao[it+1].passo-PD[i])<(PD[i]-combinacao[it].passo))			it++;
 			fprintf(fp, "<tr>\n<td>%3d</td>\n", combinacao[it].NA);
-			fprintf(fp, "<td>%3d</td>\n", combinacao[it].NB);
-			fprintf(fp, "<td>%3d</td>\n", combinacao[it].NC);
+			if (combinacao[it].NB)
+				fprintf(fp, "<td>%3d</td>\n", combinacao[it].NB);
+			else
+				fprintf(fp, "<td>QQ</td>\n");
+//			fprintf(fp, "<td>%3d</td>\n", combinacao[it].NC);
+			if (combinacao[it].NC)
+				fprintf(fp, "<td>%3d</td>\n", combinacao[it].NC);
+			else
+				fprintf(fp, "<td>--</td>\n");
 			fprintf(fp, "<td>%3d</td>\n", combinacao[it].ND);
 			fprintf(fp, "<td>%2.2f</td>\n", PD[i]);
 			fprintf(fp, "<td style=\"background-color: rgb(102, 255, 255);\">%2.4f</td>\n", combinacao[it].passo);
@@ -416,7 +432,10 @@ int ImprimeDesejados(void){
 			it= PesquisaTabela(25.4/PDP[i]);
 			if ((combinacao[it+1].passo-(25.4/PDP[i]))<((25.4/PDP[i])-combinacao[it].passo))			it++;
 			fprintf(fp, "<tr>\n<td>%3d</td>\n", combinacao[it].NA);
-			fprintf(fp, "<td>%3d</td>\n", combinacao[it].NB);
+			if (combinacao[it].NB)
+				fprintf(fp, "<td>%3d</td>\n", combinacao[it].NB);
+			else
+				fprintf(fp, "<td>QQ</td>\n");
 			fprintf(fp, "<td>%3d</td>\n", combinacao[it].NC);
 			fprintf(fp, "<td>%3d</td>\n", combinacao[it].ND);
 			fprintf(fp, "<td>%2.1f</td>\n", PDP[i]);
@@ -425,8 +444,9 @@ int ImprimeDesejados(void){
 			fprintf(fp, "%2.4f</td>\n", combinacao[it].passo);
 			fprintf(fp, "<td>%1.4f%%</td>\n</tr>\n", 100*(combinacao[it].passo-(25.4/PDP[i]))/combinacao[it].passo);
 		}
-		fprintf(fp, "<br></big></tbody>\n</table>\n");
+		fprintf(fp, "<br></big></tbody>\n</table>\n\n");
 	}
+	fprintf(fp, "Observacao: QQ eh qualquer engrenagem que caiba na posicao B da grade.<br>");
 	time(&timet);
 	t= localtime(&timet);
 	strftime(buf, 100,"Data: %d/%m/%y  Hora: %H:%M:%S\n", t);
