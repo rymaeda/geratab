@@ -8,9 +8,9 @@
 ** 09/08/15: le dados de arquivo.
 ** 10/08/15: escreve resultados num vetor e ordena
 ** 11/08/15: elimina combinacoes reduntantes e opcionalmente os
-**           equivalentes (comuta NA/NB e NC/ND), implementacao
-**           de locale e limitacao do passo maximo na saida (duas
-**           vezes o passo do fuso).
+**                 equivalentes (comuta NA/NB e NC/ND), implementacao
+**                 de locale e limitacao do passo maximo na saida (duas
+**                 vezes o passo do fuso).
 ** 12/08/15: gera saida html, implementacao de pesquisa tabela.
 ** 23/08/15: refazimento da funcao learquivo.
 ** 06/12/16: restricao dos tamanhos maximos das engrenagem AB e CD.
@@ -20,6 +20,7 @@
 ** 08/01/18: mudanca de criterio de classificacao de combinacoes com uso do produto vetorial.
 ** 11/01/18: remocao de redundancias durante a geracao de combinacoes. Diminuicao de consumo de memoria.
 ** 27/01/18: correcao rotina de solucao com 2 engrenagens.
+** 26/03/18: melhora no criterio para classificacao de  melhor solucao
 **
 ** Ricardo Y. Maeda - rymaeda AT yahoo.com
 **
@@ -184,17 +185,29 @@ void LeArquivo(char *filename){
 
 int Compara0(pCOMBINACAO elem1, pCOMBINACAO elem2){
 	if ( elem1->passo < elem2->passo) return -1;
-	else
-	    if ( elem1->passo > elem2->passo) return 1;
-	if (elem1->sigma<elem2->sigma) return -1;
-	else
-	    if (elem1->sigma>elem2->sigma) return 1;
-	else
-	    return 0;/* a=b */
+	else if ( elem1->passo > elem2->passo) return 1;
+	else if (elem1->sigma < elem2->sigma) return -1;
+	else if (elem1->sigma > elem2->sigma) return 1;
+	else if (elem1->NA*elem1->NC < elem2->NA*elem2->NC) return -1;
+	else if (elem1->NA*elem1->NC < elem2->NA*elem2->NC) return 1;
+	else 	return 0;/* a=b */
 }
 
 int Compara(const void *p1, const void *p2){ /* formato utilizado pela std qsort() */
 	return Compara0((pCOMBINACAO)p1, (pCOMBINACAO)p2);
+}
+
+int RemoveRedundancias(void){
+	int i, j;
+	i= 0;
+	for (j=1; j<icomb; j++){
+		if((combinacao+i)->passo!=(combinacao+j)->passo){
+			if (j>(i+1)) memcpy(combinacao+i+1, combinacao+j, sizeof(COMBINACAO));
+			i++;
+		}
+	}
+	icomb= i + 1;
+	return 0;
 }
 
 int RemoveRedundancias1(void){
@@ -202,7 +215,7 @@ int RemoveRedundancias1(void){
 	i= 0;
 	for (j=1; j<icomb; j++){
 		if(Compara0(combinacao+i, combinacao+j)){
-			if (j>(i+1))	memcpy(combinacao+i+1, combinacao+j, sizeof(COMBINACAO));
+			if (j>(i+1)) memcpy(combinacao+i+1, combinacao+j, sizeof(COMBINACAO));
 			i++;
 		}
 	}
@@ -215,7 +228,7 @@ int RemoveRedundancias2(void){
 	i= 0;
 	for (j=1; j<icomb; j++){
 		if(combinacao[i].passo-combinacao[j].passo){
-			if (j>(i+1))				memcpy(combinacao+i+1, combinacao+j, sizeof(COMBINACAO));
+			if (j>(i+1)) memcpy(combinacao+i+1, combinacao+j, sizeof(COMBINACAO));
 			i++;
 		}
 	}
@@ -237,7 +250,7 @@ int GeraCombinacoes(void){
 				for(l=0; l< iN; l++){
 					if (l==i||l==j||l==k) continue; /*elimina repeticao de engrenagem*/
 					p= (PF*FatorK*(double)N[i]*(double)N[k])/((double)N[j]*(double)N[l]);
-					if (p>(2*PF*FatorK)) continue; /* limita passo maximo*/
+					if (p>(4*PF*FatorK)) continue; /* limita passo maximo*/
 					/* Elimina combinacao que excede o minimo ou o maximo */
 					if (((N[i]+N[j])>MaxAB)||((N[i]+N[j])<MinAB)||
 						    ((N[k]+N[l])>MaxCD)||((N[k]+N[l])<MinCD)){
@@ -255,8 +268,9 @@ int GeraCombinacoes(void){
 					if (cont==(MAX_COMBINACOES-1)){
 						icomb= cont;
 						qsort(combinacao, cont, sizeof(COMBINACAO), Compara);
-						RemoveRedundancias1();
-						RemoveRedundancias2();
+						RemoveRedundancias();
+//						RemoveRedundancias1();
+//						RemoveRedundancias2();
 						cont=icomb;
 						if (cont==MAX_COMBINACOES){
 							fprintf(stderr, "Numero maximo de combinacoes excedido! Abortando.\n");
@@ -284,13 +298,14 @@ int GeraCombinacoes(void){
 			combinacao[cont].NC= 0;
 			combinacao[cont].ND= N[j];
 			combinacao[cont].passo= p;
-			combinacao[cont].sigma= 0.03;
+			combinacao[cont].sigma= 0.0;
 			cont++;
 					if (cont==MAX_COMBINACOES){
 						icomb= cont;
-						RemoveRedundancias1();
-						RemoveRedundancias2();
 						qsort(combinacao, cont, sizeof(COMBINACAO), Compara);
+						RemoveRedundancias();
+//						RemoveRedundancias1();
+//						RemoveRedundancias2();
 						cont=icomb;
 						if (cont==MAX_COMBINACOES){
 							fprintf(stderr, "Numero maximo de combinacoes excedido! Abortando.\n");
@@ -302,6 +317,7 @@ int GeraCombinacoes(void){
 	}
 	icomb= cont;
 	qsort(combinacao, cont, sizeof(COMBINACAO), Compara);
+	RemoveRedundancias();
 	//RemoveRedundancias1();
 	//RemoveRedundancias2();
 	return cont;
@@ -313,13 +329,16 @@ int PesquisaTabela(double passo){ /* faz pesquisa pelo metodo da dicotomia custo
 	f= icomb;
 	while((f-i)>1){
 		m= (i+f)/2;
-		if (combinacao[m].passo<passo)			i=m;
+		if (combinacao[m].passo<passo)	i=m;
 		else
 			f=m;
 	}
 	return i;
 }
 
+/*
+** Gera o nome do arquivo de saida a partir do nome do arquivo de entrada
+*/
 void AjustaNomeArquivoSaida(void){
 	int i, l;
 	l= strlen(NomeArquivo);
@@ -466,13 +485,14 @@ void Usage(char *programName){
 #endif
 	fprintf(stderr,"Informar o arquivo de entrada com a opcao '-f':\n");
 	fprintf(stderr,"Por exemplo: %s -f arquivo-de-entrada.txt\n\n\n",programName);
+	fprintf(stderr,"A opcao -t gera todos os passos encontrados.\n");
 }
 
 /* returns the index of the first argument that is not an option; i.e.
 does not start with a dash or a slash
 */
 int HandleOptions(int argc,char *argv[]){
-	int i,firstnonoption=0;
+	int i, firstnonoption=0;
 
 	for (i=1; i< argc;i++) {
 		if (argv[i][0] == '/' || argv[i][0] == '-') {
