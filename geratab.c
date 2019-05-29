@@ -7,10 +7,8 @@
 ** 08/08/15: gera combinacoes.
 ** 09/08/15: le dados de arquivo.
 ** 10/08/15: escreve resultados num vetor e ordena
-** 11/08/15: elimina combinacoes reduntantes e opcionalmente os
-**                 equivalentes (comuta NA/NB e NC/ND), implementacao
-**                 de locale e limitacao do passo maximo na saida (duas
-**                 vezes o passo do fuso).
+** 11/08/15: elimina combinacoes reduntantes e opcionalmente os equivalentes (comuta NA/NB e NC/ND),
+**                 implementacao  de locale e limitacao do passo maximo na saida (duas  vezes o passo do fuso).
 ** 12/08/15: gera saida html, implementacao de pesquisa tabela.
 ** 23/08/15: refazimento da funcao learquivo.
 ** 06/12/16: restricao dos tamanhos maximos das engrenagem AB e CD.
@@ -18,9 +16,11 @@
 ** 06/01/18: nomeia e cria arquivo de saida automaticamente.
 ** 07/01/18: rearranjo de código, inclusão de hora e data na tabela.
 ** 08/01/18: mudanca de criterio de classificacao de combinacoes com uso do produto vetorial.
-** 11/01/18: remocao de redundancias durante a geracao de combinacoes. Diminuicao de consumo de memoria.
+** 11/01/18: remocao de redundancias durante a geracao de combinacoes. Menor consumo de memoria.
 ** 27/01/18: correcao rotina de solucao com 2 engrenagens.
-** 26/03/18: melhora no criterio para classificacao de  melhor solucao
+** 26/03/19: melhora no criterio para classificacao de  melhor solucao.
+** 31/03/19: remocao de codigo morto.
+** 26/05/19: correcao no uso do kludge factor.
 **
 ** Ricardo Y. Maeda - rymaeda AT yahoo.com
 **
@@ -98,16 +98,17 @@ void LeArquivo(char *filename){
 					/* 8 max a + b */
 					/* 9 min c + d */
 					/* 10 max c + d */
+
 	FatorK=1.0;
 	fp1 = fopen(filename, "r");
 	if (!fp1){
-		fprintf(stderr,"Arquivo nao encontrado.\n");
+		fprintf(stderr,"Erro ao ler o arquivo de entrada. O arquivo existe?.\n");
 		return;
 	}
 	seletor= 0;
 	do {
 		c = fgets(oneword, 255, fp1);
-		if (oneword[strlen(oneword)-1]=='\n') /* remove o '\n' no final da string */			oneword[strlen(oneword)-1]=0;
+		if (oneword[strlen(oneword)-1]=='\n') /* remove o '\n' no final da string */	oneword[strlen(oneword)-1]=0;
 		if (oneword[0]=='#')			continue;
 		if (oneword[0]>'9') /* se a entrada nao eh numerica prepara para leitura de variavel */			seletor=0;
 		if (c != NULL){
@@ -188,7 +189,7 @@ int Compara0(pCOMBINACAO elem1, pCOMBINACAO elem2){
 	else if ( elem1->passo > elem2->passo) return 1;
 	else if (elem1->sigma < elem2->sigma) return -1;
 	else if (elem1->sigma > elem2->sigma) return 1;
-	else if (elem1->NA*elem1->NC < elem2->NA*elem2->NC) return -1;
+	else if (elem1->NA*elem1->NC > elem2->NA*elem2->NC) return -1;
 	else if (elem1->NA*elem1->NC < elem2->NA*elem2->NC) return 1;
 	else 	return 0;/* a=b */
 }
@@ -210,32 +211,6 @@ int RemoveRedundancias(void){
 	return 0;
 }
 
-int RemoveRedundancias1(void){
-	int i, j;
-	i= 0;
-	for (j=1; j<icomb; j++){
-		if(Compara0(combinacao+i, combinacao+j)){
-			if (j>(i+1)) memcpy(combinacao+i+1, combinacao+j, sizeof(COMBINACAO));
-			i++;
-		}
-	}
-	icomb= i + 1;
-	return 0;
-}
-
-int RemoveRedundancias2(void){
-	int i, j;
-	i= 0;
-	for (j=1; j<icomb; j++){
-		if(combinacao[i].passo-combinacao[j].passo){
-			if (j>(i+1)) memcpy(combinacao+i+1, combinacao+j, sizeof(COMBINACAO));
-			i++;
-		}
-	}
-	icomb= i + 1;
-	return 0;
-}
-
 int GeraCombinacoes(void){
 	int i, j, k, l;
 	int cont;
@@ -249,8 +224,8 @@ int GeraCombinacoes(void){
 				if(k==i||k==j) continue; /*elimina repeticao de engrenagem*/
 				for(l=0; l< iN; l++){
 					if (l==i||l==j||l==k) continue; /*elimina repeticao de engrenagem*/
-					p= (PF*FatorK*(double)N[i]*(double)N[k])/((double)N[j]*(double)N[l]);
-					if (p>(4*PF*FatorK)) continue; /* limita passo maximo*/
+					p= (PF/FatorK*(double)N[i]*(double)N[k])/((double)N[j]*(double)N[l]);
+					if (p>(4*PF/FatorK)) continue; /* limita passo maximo*/
 					/* Elimina combinacao que excede o minimo ou o maximo */
 					if (((N[i]+N[j])>MaxAB)||((N[i]+N[j])<MinAB)||
 						    ((N[k]+N[l])>MaxCD)||((N[k]+N[l])<MinCD)){
@@ -269,8 +244,6 @@ int GeraCombinacoes(void){
 						icomb= cont;
 						qsort(combinacao, cont, sizeof(COMBINACAO), Compara);
 						RemoveRedundancias();
-//						RemoveRedundancias1();
-//						RemoveRedundancias2();
 						cont=icomb;
 						if (cont==MAX_COMBINACOES){
 							fprintf(stderr, "Numero maximo de combinacoes excedido! Abortando.\n");
@@ -286,8 +259,8 @@ int GeraCombinacoes(void){
 	for(i=0; i< iN; i++){
 		for(j=0; j< iN; j++){
 			if (j==i) continue; /*elimina repeticao de engrenagem*/
-			p= (PF*FatorK*N[i])/(N[j]);
-			if (p>2*PF*FatorK)	continue; /* limita passo maximo */
+			p= (PF/FatorK*N[i])/(N[j]);
+			if (p>4*PF/FatorK)	continue; /* limita passo maximo */
 //			if (((N[i]+N[j])>MaxAB)||((N[i]+N[j])<MinAB)){/* Verifica tamanhos minimos e maximos das engrenagens */
 //				//printf("A+B= %d\n", N[i]+N[j]);
 //				continue;
@@ -304,8 +277,6 @@ int GeraCombinacoes(void){
 						icomb= cont;
 						qsort(combinacao, cont, sizeof(COMBINACAO), Compara);
 						RemoveRedundancias();
-//						RemoveRedundancias1();
-//						RemoveRedundancias2();
 						cont=icomb;
 						if (cont==MAX_COMBINACOES){
 							fprintf(stderr, "Numero maximo de combinacoes excedido! Abortando.\n");
@@ -318,8 +289,6 @@ int GeraCombinacoes(void){
 	icomb= cont;
 	qsort(combinacao, cont, sizeof(COMBINACAO), Compara);
 	RemoveRedundancias();
-	//RemoveRedundancias1();
-	//RemoveRedundancias2();
 	return cont;
 }
 
@@ -329,7 +298,8 @@ int PesquisaTabela(double passo){ /* faz pesquisa pelo metodo da dicotomia custo
 	f= icomb;
 	while((f-i)>1){
 		m= (i+f)/2;
-		if (combinacao[m].passo<passo)	i=m;
+		if (combinacao[m].passo<passo)
+			i=m;
 		else
 			f=m;
 	}
@@ -351,6 +321,11 @@ void AjustaNomeArquivoSaida(void){
 	return;
 }
 
+/*
+**
+** Gera arquivo de saída com os passos encontrados.
+**
+*/
 int ImprimeTabela(void){
 	int i;
 	FILE *fp;
@@ -362,7 +337,7 @@ int ImprimeTabela(void){
 	fprintf(fp,"<!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\">\n");
 	fprintf(fp,"<html>\n<head>\n<meta content=\"text/html; charset=ISO-8859-1\"\nhttp-equiv=\"content-type\">\n");
 	fprintf(fp,"<title>Geratab</title>\n</head>\n<body>\n");
-	fprintf(fp,"<big><big>Foram geradas %d combinacoes.<br>\nPasso do fuso= %2.2fmm<br>\nEngrenagens consideradas: \n", icomb, PF);
+	fprintf(fp,"<big><big>Foram geradas %d combinacoes.<br>\nPasso do fuso= %2.4fmm<br>\nEngrenagens consideradas: \n", icomb, PF);
 	for (i= 0; i<iN; i++)
 		fprintf(fp," %d", N[i]);
 	fprintf(fp,"</big><br><br>");
@@ -374,14 +349,9 @@ int ImprimeTabela(void){
 	for (i= 0; i<icomb; i++){
 		fprintf(fp, "<tr>\n<td>%3d</td>\n", combinacao[i].NA);
 		if (combinacao[i].NB)
-			fprintf(fp, "<td>%3d</td>\n", combinacao[i].NB);
+			fprintf(fp, "<td>%3d</td>\n<td>%3d</td>\n", combinacao[i].NB, combinacao[i].NC);
 		else
-			fprintf(fp, "<td>QQ</td>\n");
-//		fprintf(fp, "<td>%3d</td>\n", combinacao[i].NC);
-		if (combinacao[i].NC)
-			fprintf(fp, "<td>%3d</td>\n", combinacao[i].NC);
-		else
-			fprintf(fp, "<td>--</td>\n");
+			fprintf(fp, "<td>QQ</td>\n<td>--</td>\n");
 		fprintf(fp, "<td>%3d</td>\n", combinacao[i].ND);
 		fprintf(fp, "<td style=\"background-color: rgb(102, 255, 255);\">%2.4f</td>\n", combinacao[i].passo);
 		fprintf(fp, "<td>%2.2f | %2.2f | %1.5f</td></tr>\n", (double)combinacao[i].NA/combinacao[i].NB, (double)combinacao[i].NC/combinacao[i].ND, combinacao[i].sigma);
@@ -395,6 +365,9 @@ int ImprimeTabela(void){
 	return 0;
 }
 
+/*
+** Gera arquivo de saída com os passos indicados no arquivo de entrada.
+*/
 int ImprimeDesejados(void){
 	int i, it;
 	FILE *fp;
@@ -406,7 +379,7 @@ int ImprimeDesejados(void){
 	fprintf(fp, "<!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\">\n");
 	fprintf(fp, "<html>\n<head>\n<meta content=\"text/html; charset=ISO-8859-1\"\nhttp-equiv=\"content-type\">\n");
 	fprintf(fp, "<title>Geratab</title>\n</head>\n<body>\n");
-	fprintf(fp, "<big><big>Passo do fuso= %2.2fmm<br>\nEngrenagens consideradas: \n", PF);
+	fprintf(fp, "<big><big>Passo do fuso= %2.4gmm<br>\nEngrenagens consideradas: \n", PF);
 	for (i= 0; i<iN; i++)
 		fprintf(fp, " %d", N[i]);
 	if (FatorK!=1.0) fprintf(fp, "<br>\nKludge Fator= %2.2f<br>\n", FatorK);
@@ -420,17 +393,12 @@ int ImprimeDesejados(void){
 		fprintf(fp, "Passo<br>Efetivo<br>(mm)</td>\n<td>Erro</td>\n</tr>\n");
 		for (i= 0; i<iPD; i++){
 			it= PesquisaTabela(PD[i]);
-			if ((combinacao[it+1].passo-PD[i])<(PD[i]-combinacao[it].passo))			it++;
+			if ((combinacao[it+1].passo-PD[i])<(PD[i]-combinacao[it].passo))	it++;
 			fprintf(fp, "<tr>\n<td>%3d</td>\n", combinacao[it].NA);
 			if (combinacao[it].NB)
-				fprintf(fp, "<td>%3d</td>\n", combinacao[it].NB);
+				fprintf(fp, "<td>%3d</td>\n<td>%3d</td>\n", combinacao[it].NB,  combinacao[it].NC);
 			else
-				fprintf(fp, "<td>QQ</td>\n");
-//			fprintf(fp, "<td>%3d</td>\n", combinacao[it].NC);
-			if (combinacao[it].NC)
-				fprintf(fp, "<td>%3d</td>\n", combinacao[it].NC);
-			else
-				fprintf(fp, "<td>--</td>\n");
+				fprintf(fp, "<td>QQ</td>\n<td>--</td>\n");
 			fprintf(fp, "<td>%3d</td>\n", combinacao[it].ND);
 			fprintf(fp, "<td>%2.2f</td>\n", PD[i]);
 			fprintf(fp, "<td style=\"background-color: rgb(102, 255, 255);\">%2.4f</td>\n", combinacao[it].passo);
@@ -449,13 +417,12 @@ int ImprimeDesejados(void){
 		fprintf(fp, "Passo<br>Efetivo<br>(mm)</td>\n<td>Erro</td>\n</tr>\n");
 		for (i= 0; i<iPDP; i++){
 			it= PesquisaTabela(25.4/PDP[i]);
-			if ((combinacao[it+1].passo-(25.4/PDP[i]))<((25.4/PDP[i])-combinacao[it].passo))			it++;
+			if ((combinacao[it+1].passo-(25.4/PDP[i]))<((25.4/PDP[i])-combinacao[it].passo)) it++;
 			fprintf(fp, "<tr>\n<td>%3d</td>\n", combinacao[it].NA);
 			if (combinacao[it].NB)
-				fprintf(fp, "<td>%3d</td>\n", combinacao[it].NB);
+				fprintf(fp, "<td>%3d</td>\n<td>%3d</td>\n", combinacao[it].NB,  combinacao[it].NC);
 			else
-				fprintf(fp, "<td>QQ</td>\n");
-			fprintf(fp, "<td>%3d</td>\n", combinacao[it].NC);
+				fprintf(fp, "<td>QQ</td>\n<td>--</td>\n");
 			fprintf(fp, "<td>%3d</td>\n", combinacao[it].ND);
 			fprintf(fp, "<td>%2.1f</td>\n", PDP[i]);
 			fprintf(fp, "<td>%2.4f</td>\n", (25.4/PDP[i]));
@@ -485,7 +452,7 @@ void Usage(char *programName){
 #endif
 	fprintf(stderr,"Informar o arquivo de entrada com a opcao '-f':\n");
 	fprintf(stderr,"Por exemplo: %s -f arquivo-de-entrada.txt\n\n\n",programName);
-	fprintf(stderr,"A opcao -t gera todos os passos encontrados.\n");
+	fprintf(stderr,"A opcao -t gera **todos** os passos encontrados.\n");
 }
 
 /* returns the index of the first argument that is not an option; i.e.
